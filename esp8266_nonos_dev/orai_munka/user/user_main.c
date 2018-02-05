@@ -39,7 +39,16 @@
 
 #include "osapi.h"
 #include "user_interface.h"
+#include "../include/driver/uart.h"
 
+
+#define LED_GPIO_MUX
+#define LED_GPIO_FUNC
+
+//IO12 LED
+
+static uint8_t led_state;
+static os_timer_t blinkTimer;
 
 int32 ICACHE_FLASH_ATTR
 user_rf_cal_sector_set(void)
@@ -75,11 +84,21 @@ user_rf_cal_sector_set(void)
 }
 
 
+void heartBeat()
+{
+	GPIO_OUTPUT_SET(12, led_state);
+	led_state ^= 1;
+	os_printf("heartBeat!\n\r");
+}
 
- ICACHE_FLASH_ATTR
+
  user_init(void)
 {
-
+	 uart_div_modify(UART0, UART_CLK_FREQ/115200);
+	 led_state = 0;
+	 PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12);
+	 os_timer_setfn(&blinkTimer, (os_timer_func_t*)heartBeat, 0);
+	 os_timer_arm(&blinkTimer, 500, 1);
 }
 
 
