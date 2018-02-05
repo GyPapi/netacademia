@@ -79,6 +79,14 @@
 				<useDefaultCommand>false</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
+			<target name="all+flash" path="development" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>compile.sh</buildCommand>
+				<buildArguments/>
+				<buildTarget>all+flash</buildTarget>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>false</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
 		</buildTargets>
 	</storageModule>
 </cproject>

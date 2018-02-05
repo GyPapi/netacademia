@@ -20,31 +20,33 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
+ * Netacademia Development Folder
+ * This lectures was held at netacademia.hu
+ * Copyright Matyas Kiss, nolex90@gmail.com
+ * Features:
+ *  PWM, Knight rider effect
+ *  Soft PWM if possible
+ *  HC-SR04 ultrasound sensor driver
+ *  DHT11 driver
+ *  Button
+ * Pins used:
+ *  HCSR04: out IO13 in: IO4
+ *  DHT11: IO14
+ *  LED: IO12
+ *  BTN: IO5
+ *
  */
 
 #include "../../development/include/driver/uart.h"
 #include "osapi.h"
 #include "user_interface.h"
+#include "hcsr04-drv.h"
 
-// see eagle_soc.h for these definitions
-#define LED_GPIO 4
-#define LED_GPIO_MUX PERIPHS_IO_MUX_GPIO4_U
-#define LED_GPIO_FUNC FUNC_GPIO4
-
-#define DELAY 1000 /* milliseconds */
-#define SSID "navtah"
-#define PASSWORD "qwas1234"
-
-LOCAL os_timer_t blink_timer;
-LOCAL uint8_t led_state=0;
-LOCAL uint32_t asd;
-
-LOCAL void ICACHE_FLASH_ATTR blink_cb(void *arg)
-{
-	GPIO_OUTPUT_SET(LED_GPIO, led_state);
-	led_state ^=1;
-	os_printf( "lol %d\n", asd++);
-}
+#define MAIN_TASK_PRIO 		0
+#define MAIN_TASK_Q_SIZE    3
+static os_event_t mainTaskQ[MAIN_TASK_Q_SIZE];
+static os_timer_t mainTaskTimer;
+static os_timer_t dummyTimer;
 
 int32 ICACHE_FLASH_ATTR
 user_rf_cal_sector_set(void)
@@ -79,39 +81,39 @@ user_rf_cal_sector_set(void)
     return rf_cal_sec;
 }
 
-ICACHE_FLASH_ATTR
-ConnSetup(void)
+void ICACHE_FLASH_ATTR mainTask(os_event_t *events)
 {
-	wifi_set_opmode(0x01);
-	wifi_softap_dhcps_stop();
-	char ssid[32] =	SSID;
-	char password[64] = PASSWORD;
-	struct	station_config	stationConf;
-	stationConf.bssid_set = 0;						//need	not	check	MAC	address
-	os_memcpy(&stationConf.ssid, ssid, 32);
-	os_memcpy(&stationConf.password, password, 64);
-	wifi_station_set_config(&stationConf);
-
-
+	os_printf("mainTask \n\r");
+	TestBenchUltraSound();
+	os_timer_disarm(&dummyTimer);
+	os_timer_setfn(&dummyTimer, (os_timer_func_t *)TestBenchUltraSound, (void *)0);
+	os_timer_arm(&dummyTimer, 1000, 1);
 }
+
 
  ICACHE_FLASH_ATTR
-user_init(void)
+ user_init(void)
 {
-	 asd = 0;
-	ConnSetup();
+	//initHeartBeat();
+	//connSetup();
 	uart_div_modify( 0, UART_CLK_FREQ / ( 115200 ) );
+	os_printf("\n\n\n\n\n\n\r**************************************************************\r\n");
 	os_printf( "Helloworld\n");
 	os_printf("SDK version:%s\n", system_get_sdk_version());
-	// Configure pin as a GPIO
-	PIN_FUNC_SELECT(LED_GPIO_MUX, LED_GPIO_FUNC);
-	// Set up a timer to blink the LED
-	// os_timer_disarm(ETSTimer *ptimer)
-	os_timer_disarm(&blink_timer);
-	// os_timer_setfn(ETSTimer *ptimer, ETSTimerFunc *pfunction, void *parg)
-	os_timer_setfn(&blink_timer, (os_timer_func_t *)blink_cb, (void *)0);
-	// void os_timer_arm(ETSTimer *ptimer,uint32_t milliseconds, bool repeat_flag)
-	os_timer_arm(&blink_timer, DELAY, 1);
+	//os_printf("Wdew: %x\n\r", WDEW_NOW());
+	// create a task
+	//system_os_task(my_task,MY_TASK_PRIORITY, g_my_queue, MY_QUEUE_SIZE);
+
+	// create a timer
+
+	// start the task for the first time
+	//run_task();
+	//task_demonstrate();
+	//hw_timer_test_init();
+	system_os_task(mainTask,MAIN_TASK_PRIO, mainTaskQ, MAIN_TASK_Q_SIZE);
+	system_os_post(MAIN_TASK_PRIO,0,0);
 }
+
+
 
 

@@ -1,4 +1,4 @@
-make COMPILE=gcc BOOT=none APP=0 SPI_SPEED=40 SPI_MODE=QIO SPI_SIZE_MAP=2
+make COMPILE=gcc BOOT=none APP=0 SPI_SPEED=40 SPI_MODE=QIO SPI_SIZE_MAP=3
 
 #sudo chmod 0666 /dev/ttyUSB0 && esptool.py -p /dev/ttyUSB0 -b 460800 write_flash --flash_mode qio --flash_size detect --verify --flash_freq 40m 0x00000 ../bin/blank.bin 0x10000 ../bin/blank.bin 0xFC000 ../bin/esp_init_data_default.bin 0x7e000 ../bin/blank.bin 0xfe000 ../bin/blank.bin
 
