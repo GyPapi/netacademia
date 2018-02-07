@@ -41,14 +41,14 @@
 #include "user_interface.h"
 #include "../include/driver/uart.h"
 
+#include "utils.h"
 
-#define LED_GPIO_MUX
-#define LED_GPIO_FUNC
+//Main task definition zone
+#define MAIN_TASK_PRIO		0
+#define MAIN_TASK_Q_SIZE	2
+static os_event_t mainTaskQ[MAIN_TASK_Q_SIZE];
+static os_timer_t mainTaskTimer;
 
-//IO12 LED
-
-static uint8_t led_state;
-static os_timer_t blinkTimer;
 
 int32 ICACHE_FLASH_ATTR
 user_rf_cal_sector_set(void)
@@ -84,21 +84,22 @@ user_rf_cal_sector_set(void)
 }
 
 
-void heartBeat()
+void mainTask(os_event_t *ev)
 {
-	GPIO_OUTPUT_SET(12, led_state);
-	led_state ^= 1;
-	os_printf("heartBeat!\n\r");
+	os_printf("mainTask running...\n\r");
+	testUltraS();
+
+	os_timer_disarm(&mainTaskTimer);
+	os_timer_setfn(&mainTaskTimer, (os_timer_func_t*) mainTask, (void*) 0);
+	os_timer_arm(&mainTaskTimer, 1200, 1);
 }
 
 
  user_init(void)
 {
-	 uart_div_modify(UART0, UART_CLK_FREQ/115200);
-	 led_state = 0;
-	 PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12);
-	 os_timer_setfn(&blinkTimer, (os_timer_func_t*)heartBeat, 0);
-	 os_timer_arm(&blinkTimer, 500, 1);
+	 initUtils();
+	 system_os_task(mainTask, MAIN_TASK_PRIO, mainTaskQ, MAIN_TASK_Q_SIZE);
+	 system_os_post(MAIN_TASK_PRIO,0,0);
 }
 
 

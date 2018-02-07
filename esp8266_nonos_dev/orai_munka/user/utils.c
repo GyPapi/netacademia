@@ -25,7 +25,7 @@ void initBlinky()
 	 led_state = 0;
 	 PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12);
 	 os_timer_setfn(&blinkTimer, (os_timer_func_t*)heartBeat, 0);
-	 os_timer_arm(&blinkTimer, 500, 1);
+	 os_timer_arm(&blinkTimer, LED_BLINKY_TIME, 1);
 }
 
 void initConnection()

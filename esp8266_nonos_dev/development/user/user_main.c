@@ -84,10 +84,15 @@ user_rf_cal_sector_set(void)
 void ICACHE_FLASH_ATTR mainTask(os_event_t *events)
 {
 	os_printf("mainTask \n\r");
-	TestBenchUltraSound();
+	//TestBenchUltraSound();
+	//DhtTestSeq();
+	uint32_t temp = DhtReadTemp();
+	os_printf("good! Temp value is: %d", temp);
+
 	os_timer_disarm(&dummyTimer);
-	os_timer_setfn(&dummyTimer, (os_timer_func_t *)TestBenchUltraSound, (void *)0);
-	os_timer_arm(&dummyTimer, 1000, 1);
+	os_timer_setfn(&dummyTimer, (os_timer_func_t *)mainTask, (void *)0);
+	os_timer_arm(&dummyTimer, 1200, 1);
+
 }
 
 

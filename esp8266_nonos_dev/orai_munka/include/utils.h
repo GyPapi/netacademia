@@ -15,6 +15,8 @@
 #define LED_GPIO_MUX
 #define LED_GPIO_FUNC
 
+#define LED_BLINKY_TIME		2300
+
 //IO12 LED
 
 void initUtils();
