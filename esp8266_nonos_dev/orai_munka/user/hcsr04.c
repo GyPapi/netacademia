@@ -80,8 +80,8 @@ void ultraSTask(os_event_t *ev)
 	os_printf("Result of HCSR04 Raw measrement %d\n\r", Hcsr04ResultRaw);
 	float Distance = ultraSCalcDist();
 	uint8_t buf[16];
-	sprintf(buf, "%.2f", Distance);
-	os_printf("Result of HCSR04: %s", buf);
+	//sprintf(buf, "%.2f", Distance);
+	//os_printf("Result of HCSR04: %s", buf);
 }
 
 void testUltraS()
