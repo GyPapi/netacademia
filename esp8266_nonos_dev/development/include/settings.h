@@ -8,7 +8,7 @@
 #ifndef DEVELOPMENT_INCLUDE_SETTINGS_H_
 #define DEVELOPMENT_INCLUDE_SETTINGS_H_
 
-#define SSID "navtah"
+#define SSID "navtah10"
 #define PASSWORD "qwas1234"
 
 #define FUNC_U0CTS    4

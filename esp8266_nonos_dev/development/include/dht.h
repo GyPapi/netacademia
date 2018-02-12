@@ -20,9 +20,31 @@
 
 #define DHT11		1
 #define DHT22		2
-#define DHT_TYPE	DHT11
+#define DHT_TYPE	DHT22
 #define DHT_PIN		14
 
+#define DHT_TIMEOUT 10
+
+typedef enum
+{
+	IDLE,
+	PREP,
+	MEAS,
+	COMPL,
+	ERR,
+} DhtState;
+
+typedef struct
+{
+	DhtState state;
+#if DHT_TYPE == DHT11
+	int16_t DhtTemp;
+	int16_t DhtHum;
+#else
+	float DhtTemp;
+	float DhtHum;
+#endif
+} DhtHandler;
 
 //#define DHT_PIN_ON()		GPIO_OUTPUT_SET(DHT_PIN,1)
 //#define DHT_PIN_OFF()		GPIO_OUTPUT_SET(DHT_PIN,0)
@@ -37,13 +59,11 @@
 
 #define DHT_READ_PIN()		GPIO_INPUT_GET(DHT_PIN)
 
-#define DEBUG 1
-
-#if DEBUG
-#include <stdio.h>
-#define PRINTF(...) os_printf(__VA_ARGS__)
+#define DEBUG_EN 1
+#if DEBUG_EN == 1
+#define DEBUG( format, ... ) os_printf( format, ## __VA_ARGS__ )
 #else
-#define PRINTF(...)
+#define DEBUG( format, ... )
 #endif
 
 #endif /* DEVELOPMENT_INCLUDE_DHT_H_ */

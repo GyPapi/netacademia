@@ -41,12 +41,15 @@
 #include "osapi.h"
 #include "user_interface.h"
 #include "hcsr04-drv.h"
+#include "dht.h"
 
 #define MAIN_TASK_PRIO 		0
 #define MAIN_TASK_Q_SIZE    3
 static os_event_t mainTaskQ[MAIN_TASK_Q_SIZE];
 static os_timer_t mainTaskTimer;
 static os_timer_t dummyTimer;
+static uint8_t printbuf[64];
+
 
 int32 ICACHE_FLASH_ATTR
 user_rf_cal_sector_set(void)
@@ -81,30 +84,45 @@ user_rf_cal_sector_set(void)
     return rf_cal_sec;
 }
 
-void ICACHE_FLASH_ATTR mainTask(os_event_t *events)
+void ICACHE_FLASH_ATTR mainTask(os_event_t *ev)
 {
 	os_printf("mainTask \n\r");
-	//TestBenchUltraSound();
-	//DhtTestSeq();
-	uint32_t temp = DhtReadTemp();
-	os_printf("good! Temp value is: %d", temp);
+	DhtHandler* Dht = (DhtHandler*)ev->par;
+    if (ev->par == 0)
+        return;
+    if(Dht->state == COMPL)
+    {
+    	ets_sprintf(printbuf, "%d.%d", (int)(Dht->DhtTemp),(int)((Dht->DhtTemp - (int)Dht->DhtTemp)*100));
+    	os_printf("DhtTemp: %s\n\r", printbuf);
+    	ets_sprintf(printbuf, "%d.%d", (int)(Dht->DhtHum),(int)((Dht->DhtHum - (int)Dht->DhtHum)*100));
+    	os_printf("DhtHum: %s\n\r", printbuf);
+    	Dht->state = IDLE;
+    }
+    else if(Dht->state == ERR)
+    {
+    	os_sprintf(printbuf,"ERR in DHT reading, recall\n\r" );
+    	os_printf("%s", printbuf);
+    	DhtTestSeq();
+    }
 
-	os_timer_disarm(&dummyTimer);
-	os_timer_setfn(&dummyTimer, (os_timer_func_t *)mainTask, (void *)0);
-	os_timer_arm(&dummyTimer, 1200, 1);
+}
 
+void TestLaterSeq()
+{
+	DhtTestSeq();
 }
 
 
  ICACHE_FLASH_ATTR
  user_init(void)
 {
-	//initHeartBeat();
-	//connSetup();
+	 GPIO_OUTPUT_SET(DHT_PIN, 1);
+	initHeartBeat();
+	connSetup();
 	uart_div_modify( 0, UART_CLK_FREQ / ( 115200 ) );
 	os_printf("\n\n\n\n\n\n\r**************************************************************\r\n");
-	os_printf( "Helloworld\n");
-	os_printf("SDK version:%s\n", system_get_sdk_version());
+	os_printf( "Helloworld\n\r");
+	os_printf("SDK version:%s\n\r", system_get_sdk_version());
 	//os_printf("Wdew: %x\n\r", WDEW_NOW());
 	// create a task
 	//system_os_task(my_task,MY_TASK_PRIORITY, g_my_queue, MY_QUEUE_SIZE);
@@ -116,7 +134,9 @@ void ICACHE_FLASH_ATTR mainTask(os_event_t *events)
 	//task_demonstrate();
 	//hw_timer_test_init();
 	system_os_task(mainTask,MAIN_TASK_PRIO, mainTaskQ, MAIN_TASK_Q_SIZE);
-	system_os_post(MAIN_TASK_PRIO,0,0);
+	DhtTestSeq();
+	os_timer_setfn(&dummyTimer, (os_timer_func_t *)TestLaterSeq, (void *)0);
+	os_timer_arm(&dummyTimer, 7000, 1);
 }
 
 

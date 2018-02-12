@@ -13,36 +13,30 @@ static uint32_t DhtResult[42];
 static uint8_t DhtReadSts;
 static os_timer_t DhtTimer;
 
-static os_timer_t DhtApiTimer;
-
-#if DHT_TYPE == DHT11
-static uint32_t DhtHum;
-static uint32_t DhtTemp;
-#else
-static float DhtHum;
-static float DhtTemp;
-#endif
+static uint8_t DhtTimeout;
 
 void DhtTimerCbk();
 void DhtGpioCbk();
 
+static DhtHandler DhtHandle;
 
 ICACHE_FLASH_ATTR void DhtInit()
 {
     PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U,FUNC_GPIO14);
-    //DHT_PIN_OFF();
     GPIO_OUTPUT_SET(DHT_PIN, 1);
-    DhtReadSts = 0;
+    DhtHandle.state = PREP;
+    DhtTimeout = 0;
 }
 
 ICACHE_FLASH_ATTR void DhtReadStart()
 {
 	GPIO_OUTPUT_SET(DHT_PIN, 1);
-	os_delay_us(300);
+	os_delay_us(200);
 	GPIO_OUTPUT_SET(DHT_PIN, 0);
 	os_timer_disarm(&DhtTimer);
 	os_timer_setfn(&DhtTimer, (os_timer_func_t *)DhtTimerCbk, (void *)0);
 	os_timer_arm(&DhtTimer, 20, 1);
+	DEBUG("Dht Starting measure\n\r");
 }
 
 void ICACHE_FLASH_ATTR DhtGpioCbkSetup()
@@ -65,43 +59,47 @@ void ICACHE_FLASH_ATTR DhtGpioCbkSetup()
 void ICACHE_FLASH_ATTR DhtProcess()
 {
 	uint8_t result[5];
+	os_memset(result, 0 , sizeof(result));
 	uint8_t bytes;
-	uint8_t bits, temp, offset;
+	uint8_t bits, offset;
+	int8_t temp;
 	bits = 2;
 	for(bytes = 0; bytes < 5 ; bytes++)
 	{
 		offset = bits;
-		for(temp = 0; temp < 8; temp++)
+		for(temp = 7; temp >= 0; temp--)
 		{
 			if(DhtResult[bits] > 100)
-				result[bytes] |= 0x1 << (bits-offset);
+				result[bytes] |= 0x1 << (temp);
 			bits++;
 		}
 	}
-	os_printf("Result: %d, %d, %d ,%d, %d\n\r",result[0], result[1], result[2], result[3], result[4]);
+	DEBUG("Result: %d, %d, %d ,%d, %d\n\r",result[0], result[1], result[2], result[3], result[4]);
 	if((result[0] + result[1] + result[2] + result[3]) == result[4])
 	{
-		os_printf("parity_ok!!\n\r");
+		DEBUG("parity_ok!!\n\r");
 	}
 	else
 	{
-		os_printf("parity_NOK!!\n\r");
+		DEBUG("parity_NOK!!\n\r");
+		DhtHandle.state = ERR;
+		system_os_post(0,0,(os_param_t)&DhtHandle);
 	}
 #if DHT_TYPE == DHT11
-	DhtHum = result[0];
-	DhtTemp = result[2];
+	DhtHandle.DhtHum = result[0];
+	DhtHandle.DhtTemp = result[2];
 #else
 	uint16_t rawhumidity = result[0]<<8 | result[1];
 	uint16_t rawtemperature = result[2]<<8 | result[3];
 	if(rawtemperature & 0x8000)
 	{
-		DhtTemp = (float)((rawtemperature & 0x7FFF) / 10.0) * -1.0;
+		DhtHandle.DhtTemp = (float)((rawtemperature & 0x7FFF) / 10.0) * -1.0;
 	}
 	else
 	{
-		DhtTemp = (float)(rawtemperature)/10.0;
+		DhtHandle.DhtTemp = (float)(rawtemperature)/10.0;
 	}
-	DhtHum = (float)(rawhumidity)/10.0;
+	DhtHandle.DhtHum = (float)(rawhumidity)/10.0;
 #endif
 }
 
@@ -109,6 +107,7 @@ void DhtGpioCbk()
 {
 	uint32 gpio_status;
 	gpio_status = GPIO_REG_READ(GPIO_STATUS_ADDRESS);
+	DhtHandle.state = MEAS;
 	//clear
 	if (gpio_status & BIT(DHT_PIN))
 	{
@@ -116,13 +115,16 @@ void DhtGpioCbk()
 		DhtTimeOffset = WDEW_NOW();
 		if(DhtResultIdx > 41)
 		{
-			os_printf("Results in us:\n\r***\n\r");
-			uint8_t t;
-			for(t = 0; t < 42; t++)
-				os_printf("|%d : %d \n\r",t, DhtResult[t]);
 			ETS_GPIO_INTR_DISABLE();
+			uint8_t temp5 = 0;
+			for (temp5 = 0; temp5 < 42; temp5++)
+			{
+				DEBUG("|Dht: %d, \n\r", DhtResult[temp5]);
+			}
 			DhtProcess();
-			DhtReadSts = 2;
+			os_timer_disarm(&DhtTimer);
+			DhtHandle.state = COMPL;
+			system_os_post(0,0,(os_param_t)&DhtHandle);
 		}
 		GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status & BIT(DHT_PIN));
 	}
@@ -131,36 +133,25 @@ void DhtGpioCbk()
 
 void DhtTimerCbk()
 {
+	DEBUG("DhtTimerCbk, %d\n\r", DhtTimeout);
 	GPIO_OUTPUT_SET(DHT_PIN, 1);
 	GPIO_DIS_OUTPUT(DHT_PIN);
+	DhtTimeout++;
+	if(DHT_TIMEOUT < DhtTimeout)
+	{
+		DhtHandle.state = ERR;
+		DEBUG("DhTTimeout!!\n\r");
+		os_timer_disarm(&DhtTimer);
+		system_os_post(0,0,(os_param_t)&DhtHandle);
+	}
 	DhtGpioCbkSetup();
-}
-
-#if DHT_TYPE == DHT11
-ICACHE_FLASH_ATTR int32_t DhtReadTemp()
-#else
-ICACHE_FLASH_ATTR float DhtReadTemp()
-#endif
-{
-	if(0 == DhtReadSts)
-	{
-		os_timer_setfn(&DhtApiTimer, (os_timer_func_t *)DhtReadTemp, (void *)0);
-		os_timer_arm(&DhtTimer, 100, 1);
-		DhtReadSts = 1;
-		DhtInit();
-		DhtReadStart();
-	}
-	else if (2 == DhtReadSts)
-	{
-		os_timer_disarm(&DhtApiTimer);
-		return DhtTemp;
-	}
 
 }
-/*
+
+
 ICACHE_FLASH_ATTR void DhtTestSeq()
 {
 	DhtInit();
 	DhtReadStart();
 }
-*/
+
