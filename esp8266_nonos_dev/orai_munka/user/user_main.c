@@ -42,13 +42,16 @@
 #include "../include/driver/uart.h"
 
 #include "utils.h"
+#include "dht.h"
+
+
 
 //Main task definition zone
 #define MAIN_TASK_PRIO		0
 #define MAIN_TASK_Q_SIZE	2
 static os_event_t mainTaskQ[MAIN_TASK_Q_SIZE];
 static os_timer_t mainTaskTimer;
-
+static uint8_t printbuf[32];
 
 int32 ICACHE_FLASH_ATTR
 user_rf_cal_sector_set(void)
@@ -84,14 +87,39 @@ user_rf_cal_sector_set(void)
 }
 
 
-void mainTask(os_event_t *ev)
+void mainTask(os_event_t *e)
 {
+	DhtHandler* Dht = (DhtHandler*)e->par;
 	os_printf("mainTask running...\n\r");
-	testUltraS();
+	if(e->par == 0)
+	{
+		return;
+	}
+	switch(Dht->state)
+	{
+		case ERR:
+			os_printf("Error in dht reading\n\r");
+			dhtStart();
+			break;
+		case COMPL:
+			//os_printf("DhtReading complete: %d, %d\n\r", Dht->DhtHum, Dht->DhtTemp);
+			os_sprintf(printbuf,"%d,%d", (int)(Dht->DhtHum), (int)((Dht->DhtHum - (int)Dht->DhtHum)*100));
+			os_printf("DhtHum: %s\n\r", printbuf);
+			os_sprintf(printbuf,"%d,%d", (int)(Dht->DhtTemp), (int)((Dht->DhtTemp - (int)Dht->DhtTemp)*100));
+			os_printf("DhtTemp: %s\n\r", printbuf);
+			break;
+		default:
+			os_printf("Default state\n\r");
+	}
+
+	//testUltraS();
+/*
+	dhtTest();
 
 	os_timer_disarm(&mainTaskTimer);
 	os_timer_setfn(&mainTaskTimer, (os_timer_func_t*) mainTask, (void*) 0);
 	os_timer_arm(&mainTaskTimer, 1200, 1);
+*/
 }
 
 
@@ -99,7 +127,8 @@ void mainTask(os_event_t *ev)
 {
 	 initUtils();
 	 system_os_task(mainTask, MAIN_TASK_PRIO, mainTaskQ, MAIN_TASK_Q_SIZE);
-	 system_os_post(MAIN_TASK_PRIO,0,0);
+	 //system_os_post(MAIN_TASK_PRIO,0,0);
+	 dhtStart();
 }
 
 

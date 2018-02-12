@@ -21,7 +21,7 @@
 
 #define DHT11		1
 #define DHT22		2
-#define DHT_TYPE	DHT11
+#define DHT_TYPE	DHT22
 
 #define DHT_TIMEOUT	10
 
@@ -33,6 +33,8 @@ typedef enum
 	COMPL,
 	ERR,
 } DhtState;
+
+extern static DhtHandler DhtHandle;
 
 typedef struct
 {
@@ -59,7 +61,7 @@ typedef struct
 #define READ_REG(_r)	(*(volatile uint32_t *)(_r))
 #define WDEW_NOW()		READ_REG(0x3ff20c00)
 
-#define DEBUG_EN 1
+#define DEBUG_EN 0
 #if DEBUG_EN == 1
 #define DEBUG(format, ...) os_printf(format, ## __VA_ARGS__)
 #else

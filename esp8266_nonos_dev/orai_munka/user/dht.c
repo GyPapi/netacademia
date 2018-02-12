@@ -111,9 +111,10 @@ ICACHE_FLASH_ATTR void dhtGpioCbkSetup()
 
 void dhtTimerCbk()
 {
-	//DEBUG("DhtTimerCbk\n\r");
+	DEBUG("DhtTimerCbk %d\n\r", DhtHandle.TimeoutCnt);
 	DhtHandle.TimeoutCnt++;
-	DHT_PIN_DIS();
+	GPIO_OUTPUT_SET(DHT_PIN, 1);
+	GPIO_DIS_OUTPUT(DHT_PIN);
 	if(DHT_TIMEOUT < DhtHandle.TimeoutCnt)
 	{
 		os_timer_disarm(&DhtTimer);
@@ -140,7 +141,7 @@ ICACHE_FLASH_ATTR void dhtStart()
 	DHT_PIN_OFF();
 	//os_timer_disarm(&DhtTimer);
 	os_timer_setfn(&DhtTimer, (os_timer_func_t*)dhtTimerCbk, (void*)0);
-	os_timer_arm(&DhtTimer, 20, 0);
+	os_timer_arm(&DhtTimer, 20, 1);
 
 }
 
