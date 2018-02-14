@@ -17,6 +17,7 @@
 #include "user_interface.h"
 #include "c_types.h"
 
+#include "uni-sensor.h"
 
 #define DHT11		1
 #define DHT22		2
@@ -25,18 +26,10 @@
 
 #define DHT_TIMEOUT 10
 
-typedef enum
-{
-	IDLE,
-	PREP,
-	MEAS,
-	COMPL,
-	ERR,
-} DhtState;
 
 typedef struct
 {
-	DhtState state;
+	SensorSts_t state;
 #if DHT_TYPE == DHT11
 	int16_t DhtTemp;
 	int16_t DhtHum;

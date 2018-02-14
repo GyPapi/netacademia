@@ -16,7 +16,7 @@ static os_timer_t DhtTimer;
 static uint8_t DhtTimeout;
 
 void DhtTimerCbk();
-void DhtGpioCbk();
+void DhtGpioCbk(void *arg);
 
 static DhtHandler DhtHandle;
 
@@ -41,9 +41,10 @@ ICACHE_FLASH_ATTR void DhtReadStart()
 
 void ICACHE_FLASH_ATTR DhtGpioCbkSetup()
 {
-    ETS_GPIO_INTR_DISABLE();
+    //ETS_GPIO_INTR_DISABLE();
     GPIO_DIS_OUTPUT(DHT_PIN);
-    ETS_GPIO_INTR_ATTACH(&DhtGpioCbk, NULL);
+    //ETS_GPIO_INTR_ATTACH(&DhtGpioCbk, NULL);
+    ETS_GPIO_INTR_ATTACH(&GpioUniCbk, NULL);
     gpio_register_set(GPIO_PIN_ADDR(DHT_PIN), GPIO_PIN_INT_TYPE_SET(GPIO_PIN_INTR_DISABLE)
                       | GPIO_PIN_PAD_DRIVER_SET(GPIO_PAD_DRIVER_DISABLE)
                       | GPIO_PIN_SOURCE_SET(GPIO_AS_PIN_SOURCE));
@@ -83,7 +84,7 @@ void ICACHE_FLASH_ATTR DhtProcess()
 	{
 		DEBUG("parity_NOK!!\n\r");
 		DhtHandle.state = ERR;
-		system_os_post(0,0,(os_param_t)&DhtHandle);
+		system_os_post(0,DHT_DRIVER_SOURCE,(os_param_t)&DhtHandle);
 	}
 #if DHT_TYPE == DHT11
 	DhtHandle.DhtHum = result[0];
@@ -103,7 +104,7 @@ void ICACHE_FLASH_ATTR DhtProcess()
 #endif
 }
 
-void DhtGpioCbk()
+void DhtGpioCbk(void *arg)
 {
 	uint32 gpio_status;
 	gpio_status = GPIO_REG_READ(GPIO_STATUS_ADDRESS);
@@ -115,16 +116,20 @@ void DhtGpioCbk()
 		DhtTimeOffset = WDEW_NOW();
 		if(DhtResultIdx > 41)
 		{
-			ETS_GPIO_INTR_DISABLE();
+			//ETS_GPIO_INTR_DISABLE();
 			uint8_t temp5 = 0;
+			/*
 			for (temp5 = 0; temp5 < 42; temp5++)
 			{
 				DEBUG("|Dht: %d, \n\r", DhtResult[temp5]);
 			}
+			*/
 			DhtProcess();
+			gpio_pin_intr_state_set(GPIO_ID_PIN(DHT_PIN), GPIO_PIN_INTR_DISABLE);
+			GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status & BIT(DHT_PIN));
 			os_timer_disarm(&DhtTimer);
 			DhtHandle.state = COMPL;
-			system_os_post(0,0,(os_param_t)&DhtHandle);
+			system_os_post(0,DHT_DRIVER_SOURCE,(os_param_t)&DhtHandle);
 		}
 		GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status & BIT(DHT_PIN));
 	}
@@ -133,7 +138,7 @@ void DhtGpioCbk()
 
 void DhtTimerCbk()
 {
-	DEBUG("DhtTimerCbk, %d\n\r", DhtTimeout);
+	//DEBUG("DhtTimerCbk, %d\n\r", DhtTimeout);
 	GPIO_OUTPUT_SET(DHT_PIN, 1);
 	GPIO_DIS_OUTPUT(DHT_PIN);
 	DhtTimeout++;
@@ -142,7 +147,7 @@ void DhtTimerCbk()
 		DhtHandle.state = ERR;
 		DEBUG("DhTTimeout!!\n\r");
 		os_timer_disarm(&DhtTimer);
-		system_os_post(0,0,(os_param_t)&DhtHandle);
+		system_os_post(0,DHT_DRIVER_SOURCE,(os_param_t)&DhtHandle);
 	}
 	DhtGpioCbkSetup();
 
