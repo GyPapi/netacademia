@@ -34,7 +34,7 @@ typedef enum
 	ERR,
 } DhtState;
 
-extern static DhtHandler DhtHandle;
+//extern static DhtHandler DhtHandle;
 
 typedef struct
 {
