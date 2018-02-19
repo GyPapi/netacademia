@@ -17,6 +17,7 @@
 
 static struct espconn daemonHandler;
 static uint8_t daemonSts;
+ICACHE_FLASH_ATTR void daemonRequest();
 ICACHE_FLASH_ATTR void daemonHandleAnswer(char *pdata, unsigned short len);
 
 void daemonConnCbk(void *arg)

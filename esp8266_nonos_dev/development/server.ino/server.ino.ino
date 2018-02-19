@@ -76,9 +76,9 @@ void setup() {
   Serial.println("WiFi connected");  
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
-  unsigned int localUdpPort = 13000;
-  char incomingPacket[255];
-  Udp.begin(localUdpPort);
+  //unsigned int localUdpPort = 13000;
+  //char incomingPacket[255];
+  //Udp.begin(localUdpPort);
   
 }
 

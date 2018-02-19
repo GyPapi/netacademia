@@ -19,19 +19,27 @@
 static struct espconn HeartBeatConn;
 static os_timer_t heartbeatTimer;
 
+
+#define DEBUG_EN 0
+#if DEBUG_EN == 1
+#define DEBUG(format, ...) os_printf(format, ## __VA_ARGS__)
+#else
+#define DEBUG(format,...)
+#endif
+
 void HeartBeatConnCbk(void *arg, char *pusrdata, unsigned short length)
 {
 	remot_info* pcon_info = NULL;
 
 	espconn_get_connection_info(&HeartBeatConn, &pcon_info, 0);
-	os_printf("remote ip: %d.%d.%d.%d \r\n",pcon_info->remote_ip[0],pcon_info->remote_ip[1],
+	DEBUG("remote ip: %d.%d.%d.%d \r\n",pcon_info->remote_ip[0],pcon_info->remote_ip[1],
 		                                    pcon_info->remote_ip[2],pcon_info->remote_ip[3]);
-	os_printf("remote port: %d \r\n",pcon_info->remote_port);
+	DEBUG("remote port: %d \r\n",pcon_info->remote_port);
 }
 
 void HeartBeatReconCbk(void *arg, sint8 err)
 {
-	os_printf("reconnection\n\r");
+	DEBUG("reconnection\n\r");
 }
 
 void udpHeartBeat()
@@ -40,10 +48,10 @@ void udpHeartBeat()
 	status = espconn_create(&HeartBeatConn);
 	char *heartbeat = "Helloworld";
 	if(status != 0)
-		os_printf("heartbeat sending fail, code: %d\n\r", status);
+		DEBUG("heartbeat sending fail, code: %d\n\r", status);
 	status = espconn_sendto(&HeartBeatConn, heartbeat, 10);
 	if(status != 0)
-		os_printf("heartbeat sending fail, code: %d\n\r", status);
+		DEBUG("heartbeat sending fail, code: %d\n\r", status);
 }
 
 ICACHE_FLASH_ATTR void initUdpHeartbeat()
@@ -65,7 +73,13 @@ ICACHE_FLASH_ATTR void initUdpHeartbeat()
     //espconn_connect(&HeartBeatConn);
 	os_timer_setfn(&heartbeatTimer, (os_timer_func_t *)udpHeartBeat, (void *)0);
 	os_timer_arm(&heartbeatTimer, 1000, 1);
-	os_printf("UdpHeartBeatDone!\n\r");
+	DEBUG("UdpHeartBeatDone!\n\r");
+}
+
+ICACHE_FLASH_ATTR void initSockets()
+{
+	initUdpHeartbeat();
+	daemonConInit();
 }
 
 

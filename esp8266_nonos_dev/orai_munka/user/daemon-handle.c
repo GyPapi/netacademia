@@ -14,22 +14,27 @@
 #define DEBUG(format,...)
 #endif
 
-
+static uint8_t daemonSts;
 static struct espconn daemonHandler;
+ICACHE_FLASH_ATTR void daemonHandleAnswer(char *pdata, unsigned short len);
+ICACHE_FLASH_ATTR void daemonRequest(uint8_t* data);
 
 void daemonConnCbk(void *arg)
 {
 	DEBUG("daemon Connect cbk\n\r");
+	daemonRequest(NULL);
 }
 
 void daemonConRecvCbk(void *arg, char *pdata, unsigned short len)
 {
 	DEBUG("daemon Connect receive cbk\n\r");
+	daemonHandleAnswer(pdata,len);
 }
 
 void daemonReconnCbk(void *arg, sint8 err)
 {
 	DEBUG("daemon ReConnect cbk\n\r");
+	daemonRequest(NULL);
 }
 
 void daemonDiscCbk(void *arg)
@@ -40,6 +45,13 @@ void daemonDiscCbk(void *arg)
 void daemonWriteFinishCbk(void *arg)
 {
 	DEBUG("daemon writefinish cbk\n\r");
+}
+
+ICACHE_FLASH_ATTR void socketStarter()
+{
+	DEBUG("Initializing sockets...\n\r");
+	daemonConInit();
+	initUdpHeartBeat();
 }
 
 ICACHE_FLASH_ATTR void daemonConInit()
@@ -53,6 +65,9 @@ ICACHE_FLASH_ATTR void daemonConInit()
 	daemonHandler.proto.tcp->remote_ip[2] = 1;
 	daemonHandler.proto.tcp->remote_ip[3] = 235;
 	daemonHandler.type = ESPCONN_TCP;
+	status = espconn_regist_connectcb(&daemonHandler, daemonConnCbk);
+	if(status != 0)
+		DEBUG("EspConn Create ConnCbk Fail, code %d\n\r");
 	status = espconn_regist_recvcb(&daemonHandler, daemonConRecvCbk);
 	if(status != 0)
 		DEBUG("EspConn Create ConnCbk Fail, code %d\n\r");
@@ -68,10 +83,51 @@ ICACHE_FLASH_ATTR void daemonConInit()
 	if(status != 0)
 			DEBUG("EspConn Create FinishCbk Fail, code %d\n\r");
 
-	status = espconn_create(&daemonHandler);
+	status = espconn_connect(&daemonHandler);
 	if(status != 0)
 		DEBUG("EspConn Create Udp Heartbeat Fail, code %d\n\r");
 
-	status = espconn_sendto(&daemonHandler, "Helloworld", 10);
 	DEBUG("TcpDaemonCallbackInitDone\n\r");
+	daemonSts = 0;
 }
+
+ICACHE_FLASH_ATTR void daemonHandleAnswer(char *pdata, unsigned short len)
+{
+	uint8_t buf[64];
+	os_memcpy(buf, pdata,len);
+	if(os_strstr(buf, "DHT_GET") != NULL )
+	{
+		DEBUG("GOT DhT\n\r");
+		daemonSts++;
+		dhtStart();
+	}
+	else if(os_strstr(buf, "OK") != NULL )
+	{
+		DEBUG("GOT DhT ACK\n\r");
+		daemonSts = 0;
+	}
+	else
+	{
+		DEBUG("Unhandled answer\n\r");
+	}
+}
+
+ICACHE_FLASH_ATTR void daemonRequest(uint8* data)
+{
+	if(daemonSts == 0)
+	{
+		uint8_t status = espconn_send(&daemonHandler, "DAEMON_ASK", 10);
+		if(status != 0)
+			DEBUG("Espconn send tcp fail\n\r");
+	}
+	if(daemonSts == 1)
+	{
+		espconn_connect(&daemonHandler);
+		uint8_t status = espconn_send(&daemonHandler, data, sizeof(data));
+		if(status != 0)
+			DEBUG("Espconn send tcp fail\n\r");
+		DEBUG("Espconn dht tcp ok data: %s\n\r", data);
+		daemonSts++;
+	}
+}
+
