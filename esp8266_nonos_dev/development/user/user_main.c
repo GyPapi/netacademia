@@ -38,10 +38,12 @@
  */
 
 #include "../../development/include/driver/uart.h"
+
 #include "osapi.h"
 #include "user_interface.h"
-#include "hcsr04-drv.h"
+
 #include "dht.h"
+#include "hcsr04.h"
 
 #define MAIN_TASK_PRIO 		0
 #define MAIN_TASK_Q_SIZE    3
@@ -49,7 +51,7 @@ static os_event_t mainTaskQ[MAIN_TASK_Q_SIZE];
 static os_timer_t mainTaskTimer;
 static os_timer_t dummyTimer;
 static uint8_t printbuf[64];
-
+extern ICACHE_FLASH_ATTR void initSockets();
 
 int32 ICACHE_FLASH_ATTR
 user_rf_cal_sector_set(void)
@@ -86,33 +88,101 @@ user_rf_cal_sector_set(void)
 
 void ICACHE_FLASH_ATTR mainTask(os_event_t *ev)
 {
-	os_printf("mainTask \n\r");
-	DhtHandler* Dht = (DhtHandler*)ev->par;
-    if (ev->par == 0)
-        return;
-    if(Dht->state == COMPL)
-    {
-    	ets_sprintf(printbuf, "%d.%d", (int)(Dht->DhtTemp),(int)((Dht->DhtTemp - (int)Dht->DhtTemp)*100));
-    	os_printf("DhtTemp: %s\n\r", printbuf);
-    	ets_sprintf(printbuf, "%d.%d", (int)(Dht->DhtHum),(int)((Dht->DhtHum - (int)Dht->DhtHum)*100));
-    	os_printf("DhtHum: %s\n\r", printbuf);
-    	Dht->state = IDLE;
-    }
-    else if(Dht->state == ERR)
-    {
-    	os_sprintf(printbuf,"ERR in DHT reading, recall\n\r" );
-    	os_printf("%s", printbuf);
-    	DhtTestSeq();
-    }
+	os_printf("mainTask signal: %d, \n\r", ev->sig );
+	if(ev->sig == DHT_DRIVER_SOURCE)
+	{
+		DhtHandler* Dht = (DhtHandler*)ev->par;
+		if (ev->par == 0)
+			return;
+		if(Dht->state == COMPL)
+		{
+			ets_sprintf(printbuf, "%d.%d", (int)(Dht->DhtTemp),(int)((Dht->DhtTemp - (int)Dht->DhtTemp)*100));
+			os_printf("DhtTemp: %s\n\r", printbuf);
+			ets_sprintf(printbuf, "%d.%d", (int)(Dht->DhtHum),(int)((Dht->DhtHum - (int)Dht->DhtHum)*100));
+			os_printf("DhtHum: %s\n\r", printbuf);
+			Dht->state = IDLE;
+		}
+		else if(Dht->state == ERR)
+		{
+			os_sprintf(printbuf,"ERR in DHT reading, recall\n\r" );
+			os_printf("%s", printbuf);
+			DhtTestSeq();
+		}
+	}
+	else if(ev->sig == HCSR04_DRIVER_SOURCE)
+	{
+		Hcsr04Handler_t* Hcsr04 = (Hcsr04Handler_t*)ev->par;
+		if (ev->par == 0)
+			return;
+		if(Hcsr04->state == COMPL)
+		{
+			ets_sprintf(printbuf, "%d.%d", (int)(Hcsr04->result),(int)((Hcsr04->result - (int)Hcsr04->result)*100));
+			os_printf("Hcsr04: %s\n\r", printbuf);
+		}
+		else
+		{
+			os_printf("unhandled state in Hcsr04 sensortask\n\r");
+		}
+	}
+	else
+	{
+		os_printf("MainTask no handled command\n\r");
+	}
+
 
 }
 
 void TestLaterSeq()
 {
-	DhtTestSeq();
+	//DhtTestSeq();
+	Hcsr04Start();
 }
+/*
+void wifi_handle_event_cb(System_Event_t *evt)
+{
+	os_printf("event	%x\n",	evt->event);
+	switch	(evt->event)
+	{
+		case	EVENT_STAMODE_CONNECTED:
+			os_printf("connect	to	ssid	%s,	channel	%d\n",
+			evt->event_info.connected.ssid,
+			evt->event_info.connected.channel);
+		break;
+		case	EVENT_STAMODE_DISCONNECTED:
+			os_printf("disconnect	from	ssid	%s,	reason	%d\n",
+			evt->event_info.disconnected.ssid,
+			evt->event_info.disconnected.reason);
+		break;
+		case	EVENT_STAMODE_AUTHMODE_CHANGE:
+			os_printf("mode:	%d	->	%d\n",
+			evt->event_info.auth_change.old_mode,
+			evt->event_info.auth_change.new_mode);
+		break;
+		case	EVENT_STAMODE_GOT_IP:
+			os_printf("ip:"	IPSTR	",mask:"	IPSTR	",gw:"	IPSTR,
+			IP2STR(&evt->event_info.got_ip.ip),
+			IP2STR(&evt->event_info.got_ip.mask),
+			IP2STR(&evt->event_info.got_ip.gw));
+			os_printf("\n");
+			initUdpHeartbeat();
+			daemonConInit();
+		break;
+		case	EVENT_SOFTAPMODE_STACONNECTED:
+			os_printf("station:	"	MACSTR	"join,	AID	=	%d\n",
+			MAC2STR(evt->event_info.sta_connected.mac),
 
-
+			evt->event_info.sta_connected.aid);
+		break;
+		case	EVENT_SOFTAPMODE_STADISCONNECTED:
+			os_printf("station:	"	MACSTR	"leave,	AID	=	%d\n",
+			MAC2STR(evt->event_info.sta_disconnected.mac),
+			evt->event_info.sta_disconnected.aid);
+		break;
+		default:
+		break;
+	}
+}
+*/
  ICACHE_FLASH_ATTR
  user_init(void)
 {
@@ -134,9 +204,14 @@ void TestLaterSeq()
 	//task_demonstrate();
 	//hw_timer_test_init();
 	system_os_task(mainTask,MAIN_TASK_PRIO, mainTaskQ, MAIN_TASK_Q_SIZE);
-	DhtTestSeq();
-	os_timer_setfn(&dummyTimer, (os_timer_func_t *)TestLaterSeq, (void *)0);
-	os_timer_arm(&dummyTimer, 7000, 1);
+	//DhtTestSeq();
+	//Hcsr04Start();
+	os_timer_setfn(&dummyTimer, (os_timer_func_t *)initSockets, (void *)0);
+	os_timer_arm(&dummyTimer, 5000, 0);
+
+	//wifi_set_event_hander_cb(wifi_handle_event_cb);
+
+
 }
 
 

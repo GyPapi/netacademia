@@ -44,13 +44,16 @@
 #include "utils.h"
 #include "dht.h"
 
-
+#include "heartbeat.h"
+#include "daemon.h"
 
 //Main task definition zone
 #define MAIN_TASK_PRIO		0
 #define MAIN_TASK_Q_SIZE	2
 static os_event_t mainTaskQ[MAIN_TASK_Q_SIZE];
 static os_timer_t mainTaskTimer;
+static os_timer_t udpHeartBeatStartTimer;
+static os_timer_t daemonStartTimer;
 static uint8_t printbuf[32];
 
 int32 ICACHE_FLASH_ATTR
@@ -129,6 +132,10 @@ void mainTask(os_event_t *e)
 	 system_os_task(mainTask, MAIN_TASK_PRIO, mainTaskQ, MAIN_TASK_Q_SIZE);
 	 //system_os_post(MAIN_TASK_PRIO,0,0);
 	 dhtStart();
+	os_timer_setfn(&udpHeartBeatStartTimer, (os_timer_func_t*)initUdpHeartBeat, (void*)0);
+	os_timer_arm(&udpHeartBeatStartTimer,6000,0);
+	os_timer_setfn(&daemonStartTimer,  (os_timer_func_t*)daemonConInit, (void*)0);
+	os_timer_arm(&daemonStartTimer,6000,0);
 }
 
 

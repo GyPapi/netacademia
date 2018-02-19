@@ -27,7 +27,7 @@ void switchUart1()
 ICACHE_FLASH_ATTR
 connSetup(void)
 {
-	wifi_set_opmode(0x01);
+	wifi_set_opmode(0x01);	//station
 	wifi_softap_dhcps_stop();
 	char ssid[32] =	SSID;
 	char password[64] = PASSWORD;

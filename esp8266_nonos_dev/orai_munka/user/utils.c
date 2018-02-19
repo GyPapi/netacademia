@@ -32,8 +32,8 @@ void initConnection()
 {
 	wifi_set_opmode(0x01);
 	wifi_softap_dhcps_stop();
-	char ssid[]  = "navtah";
-	char password[] = "";
+	char ssid[]  = "navtah10";
+	char password[] = "qwas1234";
 	struct station_config stationConf;
 	stationConf.bssid_set = 0;
 	os_memcpy(&stationConf.ssid, ssid, 32);
@@ -46,5 +46,5 @@ void initConnection()
 void initUtils()
 {
 	initBlinky();
-	//initConnection();
+	initConnection();
 }

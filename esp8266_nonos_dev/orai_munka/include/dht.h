@@ -10,7 +10,6 @@
 
 #include "osapi.h"
 #include "os_type.h"
-#include "user_interface.h"
 #include "ets_sys.h"
 #include "gpio.h"
 #include "user_interface.h"
