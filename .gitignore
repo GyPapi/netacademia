@@ -5,3 +5,5 @@
 *.out
 *.a
 *.s
+python-beginner/ENV/*
+python-beginner/.vscode/*
