@@ -1,0 +1,6 @@
+<XmlStatForFiles>
+  <XmlFile filename="./xml1.xml" meanofprices="8.700000000000003" numofartists="17"/>
+  <XmlFile filename="./xml2.xml" meanofprices="10.16" numofartists="5"/>
+  <XmlFile filename="./example.xml" meanofprices="9.115384615384617" numofartists="26"/>
+  <XmlFile filename="./xml3.xml" meanofprices="9.575" numofartists="4"/>
+</XmlStatForFiles>
